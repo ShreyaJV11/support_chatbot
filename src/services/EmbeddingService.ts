@@ -18,40 +18,37 @@ export class EmbeddingService {
    */
   async generateEmbedding(text: string): Promise<number[]> {
     try {
+      const url = `${this.baseUrl}?key=${this.apiKey}`;
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
 
-      if (this.apiKey) {
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
-      }
-
-      const response = await axios.post<EmbeddingResponse>(
-        `${this.baseUrl}/embeddings`,
-        { text } as EmbeddingRequest,
-        {
-          headers,
-          timeout: 10000, // 10 second timeout
+      const body = {
+        content: {
+          parts: [{ text }]
         }
-      );
+      };
 
-      if (!response.data.embedding || !Array.isArray(response.data.embedding)) {
-        throw new Error('Invalid embedding response format');
+      const response = await axios.post(url, body, {
+        headers,
+        timeout: 10000,
+      });
+
+      if (!response.data.embedding || !Array.isArray(response.data.embedding.values)) {
+        throw new Error('Invalid Gemini embedding response format');
       }
 
-      logger.debug('Embedding generated successfully', { 
+      logger.debug('Gemini embedding generated successfully', {
         textLength: text.length,
-        embeddingDimension: response.data.embedding.length 
+        embeddingDimension: response.data.embedding.values.length
       });
 
-      return response.data.embedding;
+      return response.data.embedding.values;
     } catch (error) {
-      logger.error('Error generating embedding:', { 
+      logger.error('Error generating embedding:', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        text: text.substring(0, 100) + '...' // Log first 100 chars for debugging
+        text: text.substring(0, 100) + '...'
       });
-      
-      // Re-throw with more context
       if (axios.isAxiosError(error)) {
         throw new Error(`Embedding service error: ${error.response?.status} ${error.response?.statusText}`);
       }
@@ -64,53 +61,19 @@ export class EmbeddingService {
    * More efficient for processing multiple questions at once
    */
   async generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      if (this.apiKey) {
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
+    // Gemini API does not support batch embedding, so fallback to individual requests
+    logger.info('Gemini API: Batch embedding not supported, using individual requests');
+    const embeddings: number[][] = [];
+    for (const text of texts) {
+      try {
+        const embedding = await this.generateEmbedding(text);
+        embeddings.push(embedding);
+      } catch (individualError) {
+        logger.error('Failed to generate individual embedding:', individualError);
+        throw individualError;
       }
-
-      const response = await axios.post(
-        `${this.baseUrl}/embeddings/batch`,
-        { texts },
-        {
-          headers,
-          timeout: 30000, // 30 second timeout for batch
-        }
-      );
-
-      if (!response.data.embeddings || !Array.isArray(response.data.embeddings)) {
-        throw new Error('Invalid batch embedding response format');
-      }
-
-      logger.debug('Batch embeddings generated successfully', { 
-        count: texts.length,
-        embeddingDimension: response.data.embeddings[0]?.length || 0
-      });
-
-      return response.data.embeddings;
-    } catch (error) {
-      logger.error('Error generating batch embeddings:', error);
-      
-      // Fallback to individual requests if batch fails
-      logger.info('Falling back to individual embedding requests');
-      const embeddings: number[][] = [];
-      
-      for (const text of texts) {
-        try {
-          const embedding = await this.generateEmbedding(text);
-          embeddings.push(embedding);
-        } catch (individualError) {
-          logger.error('Failed to generate individual embedding:', individualError);
-          throw individualError;
-        }
-      }
-      
-      return embeddings;
     }
+    return embeddings;
   }
 
   /**

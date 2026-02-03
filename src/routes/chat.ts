@@ -4,6 +4,8 @@ import { validate, chatRequestSchema } from '../middleware/validation';
 import { rateLimitChat } from '../middleware/rateLimiter';
 import { asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
+import ChatLogModel from '../models/ChatLog';
+import UnansweredQuestionModel from '../models/UnansweredQuestion';
 
 const router = Router();
 const chatService = new ChatService();
@@ -11,7 +13,6 @@ const chatService = new ChatService();
 /**
  * POST /api/chat
  * Main chat endpoint - processes user questions
- * This implements the exact API contract specified in requirements
  */
 router.post('/', 
   rateLimitChat,
@@ -27,7 +28,7 @@ router.post('/',
         session_id: req.body.user_session_id
       });
 
-      // Process the question through our chat service
+      // 1. Process the question
       const response = await chatService.processQuestion({
         user_question: req.body.user_question,
         user_session_id: req.body.user_session_id
@@ -42,13 +43,48 @@ router.post('/',
         processing_time: processingTime
       });
 
-      // Return response in exact format specified
+      // 2. Return response to user (Don't wait for DB)
       res.json(response);
+
+      // ---------------------------------------------------------
+      // 3. BACKGROUND TASKS: LOGGING TO DATABASE
+      // ---------------------------------------------------------
+      
+      // Task A: Save to Chat Logs
+      try {
+        await ChatLogModel.create({
+          user_message: req.body.user_question,
+          bot_response: response.message,
+          confidence_score: response.confidence_score || 0,
+          intent_detected: response.response_type || 'Unknown',
+          sentiment: 'Neutral'
+        });
+        logger.info('📝 Chat logged to DB successfully.');
+      } catch (logError) {
+        logger.error('❌ Failed to save chat log:', logError);
+      }
+
+      // Task B: If Escalated (Collect Info), Save to Unanswered Questions
+      // ✅ FIX: "COLLECT_INFO" is the status when bot doesn't know the answer
+      if (response.response_type === 'COLLECT_INFO' || response.response_type === 'ERROR') {
+        try {
+          if (UnansweredQuestionModel && UnansweredQuestionModel.create) {
+             // ✅ FIX: 'as any' lagaya taaki TS count/last_asked pe na roye
+             await UnansweredQuestionModel.create({
+              user_query: req.body.user_question,
+              count: 1,
+              last_asked: new Date()
+            } as any);
+            logger.info('📝 Unanswered question saved to DB.');
+          }
+        } catch (unansweredError) {
+          logger.error('❌ Failed to save unanswered question:', unansweredError);
+        }
+      }
 
     } catch (error) {
       logger.error('Chat processing error:', error);
       
-      // Return error response in specified format
       res.status(500).json({
         response_type: 'ERROR',
         message: 'Sorry, something went wrong on our end. Your request has been escalated to our support team.'
@@ -59,14 +95,13 @@ router.post('/',
 
 /**
  * GET /api/chat/health
- * Health check endpoint for chat service
  */
 router.get('/health', 
   asyncHandler(async (req: Request, res: Response) => {
     const healthStatus = await chatService.healthCheck();
     
     const statusCode = healthStatus.overall_status === 'healthy' ? 200 : 
-                      healthStatus.overall_status === 'degraded' ? 206 : 503;
+                       healthStatus.overall_status === 'degraded' ? 206 : 503;
     
     res.status(statusCode).json({
       status: healthStatus.overall_status,
@@ -81,8 +116,6 @@ router.get('/health',
 
 /**
  * GET /api/chat/initial-message
- * Get the initial greeting message
- * Optional query parameter: name
  */
 router.get('/initial-message', 
   asyncHandler(async (req: Request, res: Response) => {
@@ -98,17 +131,16 @@ router.get('/initial-message',
 
 /**
  * GET /api/chat/config
- * Get current chat configuration (for debugging/admin)
  */
 router.get('/config', 
   asyncHandler(async (req: Request, res: Response) => {
     res.json({
       confidence_threshold: chatService.getConfidenceThreshold(),
       static_messages: {
-        initial: "Hi {name}, I'm the MPS Support Assistant. I can help with DOI, Access, Hosting-related queries and other tech queries by generating context understood technical responses. In other cases, I can help raise a salesforce support ticket. How can I help you today?",
+        initial: "Hi {name}, I'm the MPS Support Assistant...",
         confidence_response: "You are in good hands! I can help you with it",
-        escalation: "Thanks for your question. I wasn't able to confidently answer this, but I've raised a support ticket for you. Salesforce case no: {case_id}. Our team will get back to you shortly.",
-        error: "Sorry, something went wrong on our end. Your request has been escalated to our support team."
+        escalation: "Thanks for your question. I wasn't able to confidently answer this...",
+        error: "Sorry, something went wrong on our end..."
       }
     });
   })

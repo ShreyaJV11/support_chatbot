@@ -1,3 +1,5 @@
+import { Request } from 'express'; // 👈 Yeh line zaruri thi
+
 // Type definitions for the Enterprise Support Chatbot
 
 export interface KnowledgeBaseEntry {
@@ -166,6 +168,18 @@ export interface AppConfig {
     windowMs: number;
     maxRequests: number;
   };
+
+  // ... (Jo purana hai wo waisa hi rehne de)
+  
+  // ✅ BAS YEH ADD KAR:
+  pinecone: {
+    apiKey: string;
+    indexName: string;
+  };
+  gemini: {
+    apiKey: string;
+  };
+
   logging: {
     level: string;
     file: string;

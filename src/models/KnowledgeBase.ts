@@ -1,6 +1,8 @@
 import { db } from '../database/connection';
 import { KnowledgeBaseEntry, KnowledgeBaseCreateRequest, KnowledgeBaseUpdateRequest } from '../types';
 import { logger } from '../utils/logger';
+import { getEmbedding } from '../utils/gemini';
+import { pinecone } from '../utils/pinecone';
 
 export class KnowledgeBaseModel {
   
@@ -53,7 +55,7 @@ export class KnowledgeBaseModel {
   }
 
   /**
-   * Search knowledge base entries using full-text search
+   * Search knowledge base entries using full-text search (Postgres Fallback)
    */
   static async search(query: string): Promise<KnowledgeBaseEntry[]> {
     try {
@@ -78,10 +80,11 @@ export class KnowledgeBaseModel {
   }
 
   /**
-   * Create a new knowledge base entry
+   * Create a new knowledge base entry AND Sync with Pinecone
    */
   static async create(data: KnowledgeBaseCreateRequest, adminUser: string): Promise<KnowledgeBaseEntry> {
     try {
+      // 1. PostgreSQL mein Insert karo
       const result = await db.query(`
         INSERT INTO knowledge_base (
           primary_question, alternate_questions, answer_text, category, confidence_weight
@@ -97,10 +100,40 @@ export class KnowledgeBaseModel {
 
       const newEntry = result.rows[0];
 
+      // -------------------------------------------------------------
+      // ⭐ PINE SYNC LOGIC
+      // -------------------------------------------------------------
+      try {
+        logger.info(`🤖 Generating embedding for ID: ${newEntry.id}`);
+
+        // A. Gemini se Vector banao
+        const vector = await getEmbedding(data.primary_question);
+
+        // B. Pinecone mein save karo
+        const indexName = process.env.PINECONE_INDEX_NAME || 'chatbot-index';
+        const index = pinecone.index(indexName);
+        
+        // 👇 FIX IS HERE: Added "as any" to fix TypeScript error
+        await index.upsert([{
+            id: `q_${newEntry.id}`,           
+            values: vector,                   
+            metadata: { 
+                db_id: newEntry.id,           
+                text: data.primary_question, 
+                category: data.category 
+            }
+        }] as any); 
+
+        logger.info(`✅ Successfully synced entry ${newEntry.id} with Pinecone Index: ${indexName}`);
+
+      } catch (vectorError) {
+        logger.error('⚠️ Failed to sync with Pinecone. Please check your API Keys.', vectorError);
+      }
+      // -------------------------------------------------------------
+
       // Log admin action
       await this.logAdminAction(adminUser, 'CREATE', 'knowledge_base', newEntry.id, null, newEntry);
 
-      logger.info('Knowledge base entry created:', { id: newEntry.id, admin: adminUser });
       return newEntry;
     } catch (error) {
       logger.error('Error creating knowledge base entry:', error);
@@ -113,7 +146,6 @@ export class KnowledgeBaseModel {
    */
   static async update(id: string, data: KnowledgeBaseUpdateRequest, adminUser: string): Promise<KnowledgeBaseEntry | null> {
     try {
-      // Get current entry for audit log
       const currentEntry = await this.findById(id);
       if (!currentEntry) {
         return null;
@@ -162,7 +194,6 @@ export class KnowledgeBaseModel {
 
       const updatedEntry = result.rows[0];
 
-      // Log admin action
       await this.logAdminAction(adminUser, 'UPDATE', 'knowledge_base', id, currentEntry, updatedEntry);
 
       logger.info('Knowledge base entry updated:', { id, admin: adminUser });
@@ -174,7 +205,7 @@ export class KnowledgeBaseModel {
   }
 
   /**
-   * Delete (soft delete by setting status to inactive) a knowledge base entry
+   * Delete (soft delete)
    */
   static async delete(id: string, adminUser: string): Promise<boolean> {
     try {
@@ -188,7 +219,6 @@ export class KnowledgeBaseModel {
         ['inactive', id]
       );
 
-      // Log admin action
       await this.logAdminAction(adminUser, 'DELETE', 'knowledge_base', id, currentEntry, { ...currentEntry, status: 'inactive' });
 
       logger.info('Knowledge base entry deleted (soft):', { id, admin: adminUser });
@@ -200,7 +230,7 @@ export class KnowledgeBaseModel {
   }
 
   /**
-   * Get statistics for dashboard
+   * Get Dashboard Stats
    */
   static async getStats(): Promise<{ total: number; by_category: Array<{ category: string; count: number }> }> {
     try {
@@ -228,7 +258,7 @@ export class KnowledgeBaseModel {
   }
 
   /**
-   * Log admin actions for audit trail
+   * Private: Log Admin Action
    */
   private static async logAdminAction(
     adminUser: string,
@@ -253,7 +283,6 @@ export class KnowledgeBaseModel {
       ]);
     } catch (error) {
       logger.error('Error logging admin action:', error);
-      // Don't throw here to avoid breaking the main operation
     }
   }
 }

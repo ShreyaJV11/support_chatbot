@@ -69,6 +69,15 @@ export const config: AppConfig = {
     level: process.env.LOG_LEVEL || 'info',
     file: process.env.LOG_FILE || 'logs/app.log',
   },
+
+  // ✅ BAS YEH ADD KIYA HAI (Baki sab same hai):
+  pinecone: {
+    apiKey: process.env.PINECONE_API_KEY || '',
+    indexName: process.env.PINECONE_INDEX_NAME || '',
+  },
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY || '',
+  }
 };
 
 // Validate confidence threshold

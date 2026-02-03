@@ -2,20 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom CSS variables for purple theme */
+/* Professional Corporate Blue & Slate Theme */
+/* Modern Crimson & Charcoal Theme */
+/* HighWire Powered by MPS - Official Brand Colors */
 :root {
-  --primary-50: #faf5ff;
-  --primary-100: #f3e8ff;
-  --primary-200: #e9d5ff;
-  --primary-300: #d8b4fe;
-  --primary-400: #c084fc;
-  --primary-500: #a855f7;
-  --primary-600: #9333ea;
-  --primary-700: #7c3aed;
-  --primary-800: #6b21a8;
-  --primary-900: #581c87;
-}
+  /* The exact Maroon/Burgundy from your header */
+  --primary-50: #fff1f2;
+  --primary-100: #ffe4e6;
+  --primary-200: #fecdd3;
+  --primary-300: #fda4af;
+  --primary-400: #fb7185;
+  --primary-500: #8a152b; /* Core Brand Red (approx from image) */
+  --primary-600: #7c1226; /* Main Header Maroon */
+  --primary-700: #6b0f21; /* Hover State for Buttons */
+  --primary-800: #5a0c1c;
+  --primary-900: #4a0917;
 
+  /* Neutrals for the clean white/grey look */
+  --neutral-bg: #ffffff;
+  --neutral-text: #333333;
+  --neutral-border: #e2e8f0;
+}
 /* Override Tailwind colors with purple theme */
 .bg-primary-600 {
   background-color: var(--primary-600) !important;

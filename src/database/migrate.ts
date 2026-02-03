@@ -5,11 +5,11 @@ const migrate = async () => {
   try {
     logger.info('🔄 Starting database migration...');
 
-    // 1. Extensions Enable Karo (UUID aur Crypto ke liye)
+    // 1. Extensions Enable Karo
     await db.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
     await db.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
 
-    // 2. Helper Function: Updated At (Automatic Time Update ke liye)
+    // 2. Helper Function: Updated At
     await db.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()
       RETURNS TRIGGER AS $$
@@ -34,17 +34,35 @@ const migrate = async () => {
       );
     `);
     
-    // Fix: Trigger ko sahi tarike se lagana (Drop then Create)
     await db.query(`
       DROP TRIGGER IF EXISTS update_admins_updated_at ON admins;
       CREATE TRIGGER update_admins_updated_at
       BEFORE UPDATE ON admins
       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     `);
-    
     logger.info('✅ Admins table created/verified');
 
-    // 4. Knowledge Base Table
+    // 4. USER INFO TABLE
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_info (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(150) NOT NULL UNIQUE,
+        organization VARCHAR(150),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await db.query(`
+      DROP TRIGGER IF EXISTS update_user_info_updated_at ON user_info;
+      CREATE TRIGGER update_user_info_updated_at
+      BEFORE UPDATE ON user_info
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    `);
+    logger.info('✅ User Info table created/verified');
+
+    // 5. Knowledge Base Table
     await db.query(`
       CREATE TABLE IF NOT EXISTS knowledge_base (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -60,7 +78,7 @@ const migrate = async () => {
     `);
     logger.info('✅ Knowledge Base table created/verified');
 
-    // 5. Chat Logs Table
+    // 6. Chat Logs Table & Automatic Column Updates
     await db.query(`
       CREATE TABLE IF NOT EXISTS chat_logs (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -72,9 +90,27 @@ const migrate = async () => {
         timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    logger.info('✅ Chat Logs table created/verified');
 
-    // 6. Admin Audit Logs Table
+    // ⭐ MAGIC CODE: Dono missing columns ko handle karega
+    await db.query(`
+      DO $$ 
+      BEGIN 
+        -- 1. Check for user_id
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                       WHERE table_name='chat_logs' AND column_name='user_id') THEN
+          ALTER TABLE chat_logs ADD COLUMN user_id UUID REFERENCES user_info(id);
+        END IF;
+
+        -- 2. Check for salesforce_case_id
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                       WHERE table_name='chat_logs' AND column_name='salesforce_case_id') THEN
+          ALTER TABLE chat_logs ADD COLUMN salesforce_case_id VARCHAR(50);
+        END IF;
+      END $$;
+    `);
+    logger.info('✅ Chat Logs table and all columns (user_id, salesforce_case_id) verified');
+
+    // 7. Admin Audit Logs Table
     await db.query(`
       CREATE TABLE IF NOT EXISTS admin_audit_logs (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -89,7 +125,7 @@ const migrate = async () => {
     `);
     logger.info('✅ Audit Logs table created/verified');
 
-    // 7. Unanswered Questions Table
+    // 8. Unanswered Questions Table
     await db.query(`
       CREATE TABLE IF NOT EXISTS unanswered_questions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -109,5 +145,4 @@ const migrate = async () => {
   }
 };
 
-// Run immediately
 migrate();

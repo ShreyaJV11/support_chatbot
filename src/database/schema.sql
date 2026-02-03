@@ -1,10 +1,3 @@
--- Enterprise Support Chatbot Database Schema
--- PostgreSQL Database with 4 tables as specified
-
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- 1. Knowledge Base Table
 CREATE TABLE knowledge_base (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     primary_question TEXT NOT NULL,
@@ -17,21 +10,33 @@ CREATE TABLE knowledge_base (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Chat Logs Table
+-- 2. User Info Table 
+
+CREATE TABLE user_info (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    organization VARCHAR(150),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Chat Logs Table
 CREATE TABLE chat_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    user_id UUID REFERENCES user_info(id), 
     user_question TEXT NOT NULL,
     matched_kb_id UUID REFERENCES knowledge_base(id),
-    confidence_score DECIMAL(5,4), -- 0.0000 to 1.0000
+    confidence_score DECIMAL(5,4),
     response_type VARCHAR(20) NOT NULL CHECK (response_type IN ('ANSWERED', 'ESCALATED', 'ERROR')),
     salesforce_case_id VARCHAR(50),
-    user_session_id VARCHAR(100), -- For tracking user sessions
-    response_text TEXT, -- The actual response sent to user
-    processing_time_ms INTEGER -- Response time tracking
+    user_session_id VARCHAR(100),
+    response_text TEXT,
+    processing_time_ms INTEGER
 );
 
--- 3. Unanswered Questions Table
+-- 4. Unanswered Questions Table
 CREATE TABLE unanswered_questions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_question TEXT NOT NULL,
@@ -44,7 +49,7 @@ CREATE TABLE unanswered_questions (
     converted_kb_id UUID REFERENCES knowledge_base(id) -- If converted to KB entry
 );
 
--- 4. Admin Audit Logs Table
+-- 5. Admin Audit Logs Table
 CREATE TABLE admin_audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     admin_user VARCHAR(100) NOT NULL,
@@ -58,6 +63,7 @@ CREATE TABLE admin_audit_logs (
     user_agent TEXT
 );
 
+
 -- Indexes for Performance
 CREATE INDEX idx_knowledge_base_category ON knowledge_base(category);
 CREATE INDEX idx_knowledge_base_status ON knowledge_base(status);
@@ -67,6 +73,7 @@ CREATE INDEX idx_unanswered_questions_status ON unanswered_questions(status);
 CREATE INDEX idx_unanswered_questions_created_at ON unanswered_questions(created_at);
 CREATE INDEX idx_admin_audit_logs_timestamp ON admin_audit_logs(timestamp);
 CREATE INDEX idx_admin_audit_logs_admin_user ON admin_audit_logs(admin_user);
+CREATE INDEX idx_user_info_email ON user_info(email);
 
 -- Full-text search indexes for questions
 CREATE INDEX idx_knowledge_base_primary_question_fts ON knowledge_base USING gin(to_tsvector('english', primary_question));
@@ -85,6 +92,10 @@ CREATE TRIGGER update_knowledge_base_updated_at
     BEFORE UPDATE ON knowledge_base 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_user_info_updated_at 
+    BEFORE UPDATE ON user_info 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Sample data for testing (optional)
 INSERT INTO knowledge_base (primary_question, alternate_questions, answer_text, category, confidence_weight) VALUES
 ('How do I access my DOI?', '["Where can I find my DOI?", "DOI access help", "Cannot access DOI"]', 'To access your DOI, please log into your account dashboard and navigate to the Publications section. Your DOI will be listed next to each published item.', 'DOI', 0.95),
@@ -93,4 +104,10 @@ INSERT INTO knowledge_base (primary_question, alternate_questions, answer_text, 
 
 -- Grant permissions (adjust as needed for your setup)
 -- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO chatbot_user;
--- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO chatbot_user;
+-- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO chatbot_user;- Enterprise Support Chatbot Database Schema
+-- PostgreSQL Database with 4 tables as specified
+
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. Knowledge Base Table

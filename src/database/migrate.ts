@@ -5,7 +5,7 @@ const migrate = async () => {
   try {
     logger.info('🔄 Starting database migration...');
 
-    // 1. Extensions Enable Karo
+    // 1. Extensions Enable 
     await db.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
     await db.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
 
@@ -91,7 +91,7 @@ const migrate = async () => {
       );
     `);
 
-    // ⭐ MAGIC CODE: Dono missing columns ko handle karega
+    // ⭐ MAGIC CODE
     await db.query(`
       DO $$ 
       BEGIN 

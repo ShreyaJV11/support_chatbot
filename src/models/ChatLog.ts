@@ -93,14 +93,12 @@ export class ChatLogModel {
         ORDER BY count DESC
         LIMIT $1
       `, [limit]);
-
       return result.rows;
     } catch (error) {
       logger.error('Error getting top categories:', error);
       return [];
     }
   }
-
   /**
    * 4. Get Recent Escalations
    */
@@ -146,7 +144,6 @@ export class ChatLogModel {
 
   /**
    * 6. Search Logs (Keyword Search)
-   * ✅ YEH MISSING THA, AB ADD KAR DIYA HAI
    */
   static async search(query: string) {
     try {

@@ -16,28 +16,21 @@ export interface KnowledgeBaseEntry {
 
 export interface ChatLog {
   id: string;
-  timestamp: Date;
-  user_question: string;
-  matched_kb_id?: string;
+  user_id?: string | null;
+  user_message: string;
+  bot_response: string;
   confidence_score?: number;
-  response_type: 'ANSWERED' | 'ESCALATED' | 'ERROR';
-  salesforce_case_id?: string;
-  user_session_id?: string;
-  response_text?: string;
-  processing_time_ms?: number;
-  matched_question?: string; // Added for admin queries
+  intent_detected?: string;
+  sentiment?: string;
+  salesforce_case_id?: string | null;
+  timestamp: Date;
 }
 
 export interface UnansweredQuestion {
   id: string;
-  user_question: string;
-  detected_category?: 'DOI' | 'Access' | 'Hosting' | 'Unknown';
-  confidence_score?: number;
-  salesforce_case_id: string;
-  status: 'open' | 'resolved' | 'converted_to_kb';
-  created_at: Date;
-  resolved_at?: Date;
-  converted_kb_id?: string;
+  user_query: string;
+  count: number;
+  last_asked: Date;
 }
 
 export interface AdminAuditLog {
@@ -169,9 +162,6 @@ export interface AppConfig {
     maxRequests: number;
   };
 
-  // ... (Jo purana hai wo waisa hi rehne de)
-  
-  // ✅ BAS YEH ADD KAR:
   pinecone: {
     apiKey: string;
     indexName: string;
@@ -204,7 +194,7 @@ export interface AuthenticatedRequest extends Request {
 
 // Static Response Messages (as specified)
 export const STATIC_MESSAGES = {
-  INITIAL: "Hi {name}, I'm the MPS Support Assistant. I can help with DOI, Access, Hosting-related queries and other tech queries by generating context understood technical responses. In other cases, I can help raise a salesforce support ticket. How can I help you today?",
+  INITIAL: "Hi {name}, I'm the MPS Support Assistant. I can help with DOI, Access, Hosting-related queries and other tech queries by generating context understood technical responses. In other cases, I can help raise a salesforce support ticket. To assist you better, please provide your **Name** and **Email** to start the chat.",
   CONFIDENCE_RESPONSE: "You are in good hands! I can help you with it",
   ESCALATION: "Thanks for your question. I wasn't able to confidently answer this, but I've raised a support ticket for you. Salesforce case no: {case_id}. Our team will get back to you shortly.",
   ESCALATION_WITH_INFO: `Thanks for your question. I wasn't able to confidently answer this, but I've raised a support ticket for you.

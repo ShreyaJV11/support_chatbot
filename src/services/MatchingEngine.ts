@@ -24,7 +24,7 @@ export class MatchingEngine {
     });
     this.indexName = config.pinecone.indexName;
 
-    // API Key check (403 error prevent karne ke liye)
+    // API Key check (403 error prevention)
     this.genAI = new GoogleGenerativeAI(config.gemini.apiKey);
     this.model = this.genAI.getGenerativeModel({ model: "text-embedding-004" });
   }
@@ -51,8 +51,7 @@ export class MatchingEngine {
       const textMatch = await this.performTextSearch(userQuestion);
 
       if (textMatch) {
-        // ✅ FIX: 1.0 ki jagah dynamic score calculate kar rahe hain
-        // search_rank (ts_rank) typically 0.0 to 1.0 ke beech hota hai
+        // ✅ FIX: between 0.0-1.0
         const dynamicScore = textMatch.search_rank > 0 ? Math.min(0.85 + textMatch.search_rank, 0.95) : 0.85;
         
         logger.info(`🔍 Text Search Match! Rank Score: ${textMatch.search_rank}`);
@@ -122,11 +121,11 @@ export class MatchingEngine {
 
   /**
    * ✅ UPDATED: Dynamic Text Search with Ranking
-   * Ab ye sirf "ha/na" nahi bolega, balki batayega kitna accha match hai.
+   * magnitude of match
    */
   private async performTextSearch(query: string) {
     try {
-      // ts_rank calculate karta hai ki keywords kitni bar aur kahan match hue
+      // frequency keyword match
       const sqlQuery = `
         SELECT *, 
         ts_rank(to_tsvector('english', primary_question), plainto_tsquery('english', $1)) as search_rank

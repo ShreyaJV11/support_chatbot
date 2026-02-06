@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import Joi from 'joi';
+import Joi from 'joi'; // joi - schema validation library 
 import { logger } from '../utils/logger';
 
 /**

@@ -86,7 +86,6 @@ router.post('/logout',
   authenticateToken,
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const user = req.user!;
-    
     logger.info('Admin logout', { 
       admin_id: user.id, 
       email: user.email,

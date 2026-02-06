@@ -24,11 +24,11 @@ router.post('/',
         session_id: req.body.user_session_id
       });
 
-      // ✅ Service khud logging aur unanswered questions handle kar rahi hai
+      // ✅ Service handles logging and unanswered questions on its own
       const response = await chatService.processQuestion({
         user_question: req.body.user_question,
         user_session_id: req.body.user_session_id,
-        user_info: req.body.user_info // Agar frontend se info aa rahi ho
+        user_info: req.body.user_info 
       });
 
       const processingTime = Date.now() - startTime;
@@ -75,7 +75,6 @@ router.get('/health',
  */
 router.get('/initial-message', 
   asyncHandler(async (req: Request, res: Response) => {
-    // Identity-First flow ke liye ab argument optional hai
     const initialMessage = chatService.getInitialMessage();
     
     res.json({

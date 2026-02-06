@@ -38,8 +38,8 @@ async function createDefaultAdmin() {
 
     // Create default admin
     const admin = await AdminModel.create({
-      email: 'admin@example.com',
-      password: 'admin123', // Change this in production!
+      email: 'paul@mpslimited.com',
+      password: 'admin123',
       role: 'super_admin'
     });
 

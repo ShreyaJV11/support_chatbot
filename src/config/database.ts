@@ -1,5 +1,5 @@
-import { Pool } from 'pg';
-import config from './index'; // Tumhari purani config file se settings uthayega
+import { Pool } from 'pg'; // pool - a manager that keeps several databases connections open and hands them out whenever your app needs to run a query.
+import config from './index'; 
 
 const pool = new Pool({
   host: config.database.host,

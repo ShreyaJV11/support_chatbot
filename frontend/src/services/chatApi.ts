@@ -87,7 +87,7 @@ class ChatApiService {
       console.error('Initial message API error:', error);
       // Fallback to default message
       const name = userName || 'there';
-      return `Hi ${name}, I'm the MPS Support Assistant. I can help with DOI, Access, Hosting-related queries and other tech queries by generating context understood technical responses. In other cases, I can help raise a salesforce support ticket. How can I help you today?`;
+      return `Hi${name}, I'm the MPS Support Assistant. I can help with DOI, Access, Hosting-related queries and other tech queries by generating context understood technical responses. In other cases, I can help raise a salesforce support ticket. To assist you better, please provide your **Name** and **Email** to start the chat.`;
     }
   }
 

@@ -106,10 +106,10 @@ export class KnowledgeBaseModel {
       try {
         logger.info(`🤖 Generating embedding for ID: ${newEntry.id}`);
 
-        // A. Gemini se Vector banao
+        // A. Gemini 
         const vector = await getEmbedding(data.primary_question);
 
-        // B. Pinecone mein save karo
+        // B. Pinecone 
         const indexName = process.env.PINECONE_INDEX_NAME || 'chatbot-index';
         const index = pinecone.index(indexName);
         
